@@ -1,20 +1,27 @@
+// Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'getProductInfo') {
     const productName = getProductName();
     sendResponse({ name: productName });
   }
+  // Important: return true for async sendResponse
+  return true;
 });
 
 function getProductName() {
+  // Amazon
   let name = document.querySelector('#productTitle')?.textContent?.trim();
   if (name) return name;
 
+  // Walmart  
   name = document.querySelector('[data-testid="product-title"]')?.textContent?.trim();
   if (name) return name;
 
+  // eBay
   name = document.querySelector('.x-item-title__mainTitle')?.textContent?.trim();
   if (name) return name;
 
+  // Generic selectors
   const selectors = [
     'h1[itemprop="name"]',
     '.product-title',

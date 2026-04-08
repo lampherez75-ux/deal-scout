@@ -1,4 +1,4 @@
-const API_URL = 'https://dealscout.online/api/search';
+const API_URL = 'https://deal-scout-bzpjxyi0p-lampherez75-5227s-projects.vercel.app/api/search';
 
 let currentProduct = null;
 
@@ -27,24 +27,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     resultsEl.innerHTML = '<div class="loading">Comparing prices...</div>';
 
     try {
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: currentProduct })
-      });
+      // Use GET request with query parameter
+      const res = await fetch(`${API_URL}?product=${encodeURIComponent(currentProduct)}`);
       const data = await res.json();
 
       resultsEl.innerHTML = '';
-      if (data.results && data.results.length > 0) {
-        data.results.forEach(item => {
+      
+      // SerpAPI returns results in shopping_results
+      if (data.shopping_results && data.shopping_results.length > 0) {
+        data.shopping_results.slice(0, 10).forEach(item => {
           const div = document.createElement('div');
           div.className = 'result-item';
           div.innerHTML = `
             <div>
-              <div class="store">${item.store}</div>
-              <div class="price">$${item.price}</div>
+              <div class="store">${item.source}</div>
+              <div class="title">${item.title.substring(0, 50)}${'...'}</div>
+              <div class="price">${item.price}</div>
+              <div class="rating">${item.rating ? item.rating + ' ⭐ (' + item.reviews + ' reviews)' : ''}</div>
             </div>
-            <a href="${item.link}" target="_blank">View Deal</a>
+            <a href="${item.product_link}" target="_blank">View Deal</a>
           `;
           resultsEl.appendChild(div);
         });
@@ -52,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         resultsEl.innerHTML = '<div class="error">No results found</div>';
       }
     } catch (err) {
+      console.error(err);
       resultsEl.innerHTML = '<div class="error">Error searching prices</div>';
     }
 

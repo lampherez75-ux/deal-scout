@@ -1,7 +1,5 @@
 const API_URL = 'https://deal-scout-bzpjxyi0p-lampherez75-5227s-projects.vercel.app/api/search';
 
-let currentProduct = null;
-
 document.addEventListener('DOMContentLoaded', async () => {
   const productNameEl = document.getElementById('productName');
   const searchBtn = document.getElementById('searchBtn');
@@ -9,43 +7,47 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
-  chrome.tabs.sendMessage(tab.id, { type: 'getProductInfo' }, (response) => {
-    if (response && response.name) {
-      currentProduct = response.name;
-      productNameEl.textContent = response.name;
-    } else {
-      productNameEl.textContent = 'Unable to detect product';
-      searchBtn.disabled = true;
-    }
-  });
+  try {
+    chrome.tabs.sendMessage(tab.id, { type: 'getProductInfo' }, (response) => {
+      console.log('Content script response:', response);
+      if (response && response.name) {
+        productNameEl.textContent = response.name;
+      } else {
+        productNameEl.textContent = 'No product detected - enter manually';
+      }
+    });
+  } catch (err) {
+    console.error('Error:', err);
+    productNameEl.textContent = 'Error detecting product';
+  }
 
   searchBtn.addEventListener('click', async () => {
-    if (!currentProduct) return;
+    const productName = productNameEl.textContent;
+    if (!productName || productName.includes('Unable') || productName.includes('Error')) return;
     
     searchBtn.disabled = true;
     searchBtn.textContent = 'Searching...';
     resultsEl.innerHTML = '<div class="loading">Comparing prices...</div>';
 
     try {
-      // Use GET request with query parameter
-      const res = await fetch(`${API_URL}?product=${encodeURIComponent(currentProduct)}`);
+      const res = await fetch(`${API_URL}?product=${encodeURIComponent(productName)}`);
       const data = await res.json();
+      console.log('API Response:', data);
 
       resultsEl.innerHTML = '';
       
-      // SerpAPI returns results in shopping_results
       if (data.shopping_results && data.shopping_results.length > 0) {
         data.shopping_results.slice(0, 10).forEach(item => {
           const div = document.createElement('div');
           div.className = 'result-item';
           div.innerHTML = `
-            <div>
-              <div class="store">${item.source}</div>
-              <div class="title">${item.title.substring(0, 50)}${'...'}</div>
-              <div class="price">${item.price}</div>
-              <div class="rating">${item.rating ? item.rating + ' ⭐ (' + item.reviews + ' reviews)' : ''}</div>
+            <div style="flex:1;">
+              <div class="store"><strong>${item.source}</strong></div>
+              <div class="title">${item.title ? item.title.substring(0, 40) + '...' : 'N/A'}</div>
+              <div class="price" style="font-size:18px; color:green; font-weight:bold;">${item.price || 'N/A'}</div>
+              ${item.rating ? `<div class="rating">⭐ ${item.rating} (${item.reviews} reviews)</div>` : ''}
             </div>
-            <a href="${item.product_link}" target="_blank">View Deal</a>
+            <a href="${item.product_link}" target="_blank" style="background:#007bff;color:white;padding:8px 12px;text-decoration:none;border-radius:4px;">View Deal</a>
           `;
           resultsEl.appendChild(div);
         });
@@ -53,8 +55,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         resultsEl.innerHTML = '<div class="error">No results found</div>';
       }
     } catch (err) {
-      console.error(err);
-      resultsEl.innerHTML = '<div class="error">Error searching prices</div>';
+      console.error('Error:', err);
+      resultsEl.innerHTML = '<div class="error">Error: ' + err.message + '</div>';
     }
 
     searchBtn.disabled = false;
